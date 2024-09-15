@@ -2,8 +2,11 @@ package com.sanwei.lequ.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.sanwei.lequ.contant.UserConstant;
 import com.sanwei.lequ.mapper.UserMapper;
+import com.sanwei.lequ.model.domain.Tag;
 import com.sanwei.lequ.service.UserService;
 import com.sanwei.lequ.common.ErrorCode;
 import com.sanwei.lequ.exception.BusinessException;
@@ -11,12 +14,18 @@ import com.sanwei.lequ.model.domain.User;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 用户服务实现类
@@ -54,7 +63,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (userAccount.length() < 4) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
         }
-        if (userPassword.length() < 8 || checkPassword.length() < 8) {
+        if (userPassword.length() < 3 || checkPassword.length() < 3) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
         }
         if (planetCode.length() > 5) {
@@ -166,6 +175,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         safetyUser.setUserRole(originUser.getUserRole());
         safetyUser.setUserStatus(originUser.getUserStatus());
         safetyUser.setCreateTime(originUser.getCreateTime());
+        safetyUser.setTags(originUser.getTags());
         return safetyUser;
     }
 
@@ -179,6 +189,51 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 移除登录态
         request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
         return 1;
+    }
+
+    /**
+     * 根据标签搜索用户
+     *
+     * @param tagNameList 用户要拥有的标签
+     * @return
+     */
+    @Override
+    public List<User> searchUserByTags(List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 1.sql查询
+//        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+//        // 拼接 and 查询
+//        // like '%Java%' and like '%Python%'
+//        for (String tagName : tagNameList) {
+//            queryWrapper = queryWrapper.like("tags",tagName);
+//        }
+//        List<User> userList = userMapper.selectList(queryWrapper);
+//        return userList.stream().map(this::getSafetyUser).collect(Collectors.toList());
+
+        // 2. 内存查询
+        // 2.1 先查询所有用户
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        List<User> userList = userMapper.selectList(queryWrapper);
+        Gson gson = new Gson();
+        // 2.2 在内存中判断是否包含要求的标签
+        // Java 序列化 ： json =》 String
+        // 解析Json
+        return userList.stream().filter(user -> {
+            String tagsStr = user.getTags();
+            if (StringUtils.isBlank(tagsStr)) {
+                return false;
+            }
+            Set<String> tagNameSet = gson.fromJson(tagsStr,new TypeToken<Set<String>>(){}.getType());// 原因时无法直接List<String>.class
+            tagNameSet = Optional.ofNullable(tagNameSet).orElse(new HashSet<>());
+            for (String tagName : tagNameList) {
+                if (!tagNameSet.contains(tagName)) {
+                    return false;
+                }
+            }
+            return true;
+        }).map(this::getSafetyUser).collect(Collectors.toList());
     }
 
 }
