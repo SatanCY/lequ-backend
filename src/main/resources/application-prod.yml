@@ -1,0 +1,15 @@
+# 线上配置文件
+# @author <a href="https://github.com">SatanCY</a>
+# @from <a href="https://github.com">GitHub</a>
+spring:
+  # DataSource Config
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: 'jdbc:mysql://localhost:3306/lequ?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC'
+    username: self
+    password: liyupi66!
+  # session 失效时间
+  session:
+    timeout: 86400
+server:
+  address: 0.0.0.0
