@@ -1,8 +1,8 @@
 # SatanCY - 乐趣-伙伴匹配项目
 
-> 作者：[SatanCY](https://github.com)
+> 作者：[SatanCY](https://github.com/SatanCY)
 
-本项目为 [GitHub](https://github.com) 全栈项目，后端代码开源。
+本项目为 [GitHub](https://github.com/SatanCY/lequ-backend) 全栈项目，后端代码开源。
 
 ## 项目简介
 

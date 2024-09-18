@@ -1,21 +1,28 @@
 package com.sanwei.lequ.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.sanwei.lequ.common.BaseResponse;
 import com.sanwei.lequ.common.ResultUtils;
 import com.sanwei.lequ.contant.UserConstant;
 import com.sanwei.lequ.exception.BusinessException;
+import com.sanwei.lequ.model.domain.Tag;
 import com.sanwei.lequ.service.UserService;
 import com.sanwei.lequ.common.ErrorCode;
 import com.sanwei.lequ.model.domain.User;
 import com.sanwei.lequ.model.domain.request.UserLoginRequest;
 import com.sanwei.lequ.model.domain.request.UserRegisterRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -26,10 +33,14 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/user")
+@Slf4j
 public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedisTemplate redisTemplate;
 
     /**
      * 用户注册
@@ -124,6 +135,15 @@ public class UserController {
         return ResultUtils.success(list);
     }
 
+    @GetMapping("/search/tags")
+    public BaseResponse<List<User>> searchUsers(@RequestParam(required = false) List<String> tagNameList) {
+        if (CollectionUtils.isEmpty(tagNameList)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        List<User> userList = userService.searchUserByTags(tagNameList);
+        return ResultUtils.success(userList);
+    }
+
     @PostMapping("/delete")
     public BaseResponse<Boolean> deleteUser(@RequestBody long id, HttpServletRequest request) {
         if (!isAdmin(request)) {
@@ -134,6 +154,39 @@ public class UserController {
         }
         boolean b = userService.removeById(id);
         return ResultUtils.success(b);
+    }
+
+    @PostMapping("/update")
+    public BaseResponse<Integer> updateUser(@RequestBody User user,HttpServletRequest request) {
+        if (user == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLogininUser(request);
+        int result = userService.updateUser(user,loginUser);
+        return ResultUtils.success(result);
+    }
+
+    @GetMapping("/recommend")
+    public BaseResponse<Page<User>> recommendUsers(long pageSize ,long pageNum ,HttpServletRequest request) {
+        User logininUser = userService.getLogininUser(request);
+        String redisKey = String.format("sanwei:user:recommend:%s:%s",logininUser.getId(),pageNum);
+        ValueOperations valueOperations = redisTemplate.opsForValue();
+        //先尝试读取缓存
+        Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
+        if (userPage != null) {
+            return ResultUtils.success(userPage);
+        }
+        //没有缓存，查询数据库
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        userPage = userService.page(new Page<>(pageNum, pageSize), queryWrapper);
+//        //将数据写入缓存,60s过期
+        try {
+            valueOperations.set(redisKey,userPage,60000, TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            log.error("redis set key error",e);
+        }
+        System.out.println(userPage.getTotal());
+        return ResultUtils.success(userPage);
     }
 
     /**

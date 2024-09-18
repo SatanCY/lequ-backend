@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.sanwei.lequ.common.ObjectUtils;
 import com.sanwei.lequ.contant.UserConstant;
 import com.sanwei.lequ.mapper.UserMapper;
 import com.sanwei.lequ.model.domain.Tag;
@@ -26,6 +27,9 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.sanwei.lequ.contant.UserConstant.ADMIN_ROLE;
+import static com.sanwei.lequ.contant.UserConstant.USER_LOGIN_STATE;
 
 /**
  * 用户服务实现类
@@ -60,7 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.isAnyBlank(userAccount, userPassword, checkPassword, planetCode)) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
         }
-        if (userAccount.length() < 4) {
+        if (userAccount.length() < 3) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户账号过短");
         }
         if (userPassword.length() < 3 || checkPassword.length() < 3) {
@@ -121,10 +125,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (StringUtils.isAnyBlank(userAccount, userPassword)) {
             return null;
         }
-        if (userAccount.length() < 4) {
+        if (userAccount.length() < 3) {
             return null;
         }
-        if (userPassword.length() < 8) {
+        if (userPassword.length() < 3) {
             return null;
         }
         // 账户不能包含特殊字符
@@ -148,7 +152,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 3. 用户脱敏
         User safetyUser = getSafetyUser(user);
         // 4. 记录用户的登录态
-        request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, safetyUser);
+        request.getSession().setAttribute(USER_LOGIN_STATE, safetyUser);
         return safetyUser;
     }
 
@@ -187,7 +191,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public int userLogout(HttpServletRequest request) {
         // 移除登录态
-        request.getSession().removeAttribute(UserConstant.USER_LOGIN_STATE);
+        request.getSession().removeAttribute(USER_LOGIN_STATE);
         return 1;
     }
 
@@ -234,6 +238,77 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             return true;
         }).map(this::getSafetyUser).collect(Collectors.toList());
+    }
+
+    /**
+     * 获取当前用户
+     *
+     * @param request
+     * @return
+     */
+    @Override
+    public User getLogininUser(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        if (userObj == null) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN);
+        }
+        return (User) userObj;
+    }
+
+    /**
+     * 更新当前用户
+     *
+     * @param user 更新后的用户信息
+     * @param loginUser 需要更新的当前登录用户信息
+     * @return
+     */
+    @Override
+    public int updateUser(User user, User loginUser) {
+        long userId = user.getId();
+        if (userId <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        // 补充校验，如果用户没有传任何要更新的值，就直接报错，不执行update语句
+        if (ObjectUtils.isObjectExceptIdNull(user)) {
+            throw new BusinessException(ErrorCode.NO_NEED_UPDATE);
+        }
+        //如果是管理员，允许更新所有用户
+        //如果不是管理员，只允许更新自己的信息
+        if (!isAdmin(loginUser) && userId != loginUser.getId()) {
+            throw new BusinessException(ErrorCode.NO_AUTH);
+        }
+        User userRole = userMapper.selectById(userId);
+        if (userRole == null) {
+            throw new BusinessException(ErrorCode.NULL_ERROR);
+        }
+        return userMapper.updateById(user);
+    }
+
+    /**
+     * 判断是否为管理员
+     *
+     * @param request http请求
+     * @return
+     */
+    @Override
+    public boolean isAdmin(HttpServletRequest request) {
+        Object userObj = request.getSession().getAttribute(USER_LOGIN_STATE);
+        User user = (User) userObj;
+        return user != null && user.getUserRole() == ADMIN_ROLE;
+    }
+
+    /**
+     * 判断是否为管理员
+     *
+     * @param loginUser 当前用户
+     * @return
+     */
+    @Override
+    public boolean isAdmin(User loginUser) {
+        return loginUser != null && loginUser.getUserRole() == ADMIN_ROLE;
     }
 
 }

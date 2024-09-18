@@ -3,6 +3,7 @@ package com.sanwei.lequ;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * 启动类
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 @MapperScan("com.sanwei.lequ.mapper")
+@EnableScheduling
 public class LeQuApplication {
 
     public static void main(String[] args) {
