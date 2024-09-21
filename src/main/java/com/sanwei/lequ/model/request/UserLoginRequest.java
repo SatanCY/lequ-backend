@@ -1,4 +1,4 @@
-package com.sanwei.lequ.model.domain.request;
+package com.sanwei.lequ.model.request;
 
 import lombok.Data;
 

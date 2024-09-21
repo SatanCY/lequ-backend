@@ -6,12 +6,11 @@ import com.sanwei.lequ.common.BaseResponse;
 import com.sanwei.lequ.common.ResultUtils;
 import com.sanwei.lequ.contant.UserConstant;
 import com.sanwei.lequ.exception.BusinessException;
-import com.sanwei.lequ.model.domain.Tag;
 import com.sanwei.lequ.service.UserService;
 import com.sanwei.lequ.common.ErrorCode;
 import com.sanwei.lequ.model.domain.User;
-import com.sanwei.lequ.model.domain.request.UserLoginRequest;
-import com.sanwei.lequ.model.domain.request.UserRegisterRequest;
+import com.sanwei.lequ.model.request.UserLoginRequest;
+import com.sanwei.lequ.model.request.UserRegisterRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -161,14 +160,14 @@ public class UserController {
         if (user == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User loginUser = userService.getLogininUser(request);
+        User loginUser = userService.getLoginUser(request);
         int result = userService.updateUser(user,loginUser);
         return ResultUtils.success(result);
     }
 
     @GetMapping("/recommend")
     public BaseResponse<Page<User>> recommendUsers(long pageSize ,long pageNum ,HttpServletRequest request) {
-        User logininUser = userService.getLogininUser(request);
+        User logininUser = userService.getLoginUser(request);
         String redisKey = String.format("sanwei:user:recommend:%s:%s",logininUser.getId(),pageNum);
         ValueOperations valueOperations = redisTemplate.opsForValue();
         //先尝试读取缓存
