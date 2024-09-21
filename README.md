@@ -1,4 +1,4 @@
-# SatanCY - 乐趣-伙伴匹配项目
+# 乐趣-伙伴匹配项目
 
 > 作者：[SatanCY](https://github.com/SatanCY)
 
